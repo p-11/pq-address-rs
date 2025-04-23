@@ -137,12 +137,12 @@ impl HashAlgorithm {
 ///
 /// Codes are in the range `0x40..=0xFF` (192 total slots),
 /// giving us plenty of room for future PQC schemes:
-/// - `0x40` = ML-DSA 67
+/// - `0x40` = ML-DSA 65
 /// - `0x41` = ML-DSA 87
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum PubKeyType {
-    /// ML-DSA 67 public key.
-    MLDSA67,
+    /// ML-DSA 65 public key.
+    MLDSA65,
     /// ML-DSA 87 public key.
     MLDSA87,
 }
@@ -153,7 +153,7 @@ impl PubKeyType {
     /// Reserved range: 0x40..=0xFF (up to 192 key types).
     pub fn code(self) -> u8 {
         match self {
-            PubKeyType::MLDSA67 => 0x40,
+            PubKeyType::MLDSA65 => 0x40,
             PubKeyType::MLDSA87 => 0x41,
         }
     }
@@ -161,7 +161,7 @@ impl PubKeyType {
     /// Reverse lookup from byte code to enum.
     pub fn from_code(code: u8) -> Option<PubKeyType> {
         match code {
-            0x40 => Some(PubKeyType::MLDSA67),
+            0x40 => Some(PubKeyType::MLDSA65),
             0x41 => Some(PubKeyType::MLDSA87),
             _ => None,
         }
@@ -317,14 +317,14 @@ pub fn decode_address(s: &str) -> Result<DecodedAddress, AddressDecodeError> {
 mod tests {
     use super::*;
 
-    /// Round‑trip test on Mainnet with SHA‑256 + ML‑DSA_67
+    /// Round‑trip test on Mainnet with SHA‑256 + ML‑DSA_65
     #[test]
-    fn roundtrip_mainnet_sha256_mldsa_67() {
+    fn roundtrip_mainnet_sha256_mldsa_65() {
         let key = b"hello";
         let params = AddressParams {
             network: Network::Mainnet,
             version: Version::V1,
-            pubkey_type: PubKeyType::MLDSA67,
+            pubkey_type: PubKeyType::MLDSA65,
             hash_alg: HashAlgorithm::SHA2_256,
             pubkey_bytes: key,
         };

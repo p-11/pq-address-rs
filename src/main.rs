@@ -7,7 +7,7 @@ fn main() {
     let params = AddressParams {
         network: Network::Mainnet,
         version: Version::V1,
-        pubkey_type: PubKeyType::MLDSA67,
+        pubkey_type: PubKeyType::MLDSA65,
         hash_alg: HashAlgorithm::SHA2_256,
         pubkey_bytes: b"hello world!",
     };
