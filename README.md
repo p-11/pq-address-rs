@@ -11,7 +11,7 @@ Sharing a post‑quantum public key over text or QR code needs:
 3. A readable, typo‑resistant **encoding**.
 4. A clear **network flag** (production vs development).
 
-`pq‑address‑rs` provides all four. It lets you generate and parse addresses for any public‑key type (ML‑DSA, SLH‑DSA, etc.) and any hash algorithm (SHA‑256, SHA3-512, Blake2b‑512, …), while guaranteeing future‑proof safety.
+`pq‑address‑rs` provides all four. It lets you generate and parse addresses for any public‑key type (ML‑DSA, SLH‑DSA, etc.) and any hash algorithm (SHA‑256, SHA3-256, …), while guaranteeing future‑proof safety.
 
 ## Design & Justification
 
@@ -64,6 +64,8 @@ Address example: `yp1qpqzqagfuk76p3mz62av07gdwk94kgnrlgque0z592678hck80sgum9fdgf
 4. **Checksum**
    - 6 Bech32 characters (BIP-350)
    - Catches typos and bit-errors.
+
+Note: A Bech32 string is at most 90 characters long [BIP-173]
 
 ## Quickstart
 

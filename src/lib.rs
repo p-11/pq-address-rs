@@ -8,9 +8,12 @@
 
 use bech32::{Bech32m, Hrp, decode, encode};
 use hex::encode as hex_encode;
-use sha2::{Digest as ShaDigest, Sha256, Sha512};
+use sha2::{Digest as ShaDigest, Sha256};
 use std::convert::TryFrom;
 use thiserror::Error;
+
+/// A Bech32 string is at most 90 characters long [BIP-173]
+const MAX_ADDRESS_LENGTH: usize = 90;
 
 /// Which network you’re on.
 ///
@@ -79,13 +82,10 @@ impl Version {
 ///
 /// Codes are in the range `0x20..=0x3F` (32 total slots):
 /// - `0x20` = SHA2-256
-/// - `0x21` = SHA2-512
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum HashAlgorithm {
     /// SHA2-256, 32-byte output.
     SHA2_256,
-    /// SHA2-512, 64-byte output.
-    SHA2_512,
 }
 
 impl HashAlgorithm {
@@ -95,7 +95,6 @@ impl HashAlgorithm {
     pub fn code(self) -> u8 {
         match self {
             HashAlgorithm::SHA2_256 => 0x20,
-            HashAlgorithm::SHA2_512 => 0x21,
         }
     }
 
@@ -103,7 +102,6 @@ impl HashAlgorithm {
     pub fn from_code(code: u8) -> Option<HashAlgorithm> {
         match code {
             0x20 => Some(HashAlgorithm::SHA2_256),
-            0x21 => Some(HashAlgorithm::SHA2_512),
             _ => None,
         }
     }
@@ -112,7 +110,6 @@ impl HashAlgorithm {
     pub fn digest_length(self) -> usize {
         match self {
             HashAlgorithm::SHA2_256 => 32,
-            HashAlgorithm::SHA2_512 => 64,
         }
     }
 
@@ -121,11 +118,6 @@ impl HashAlgorithm {
         match self {
             HashAlgorithm::SHA2_256 => {
                 let mut h = Sha256::new();
-                h.update(data);
-                h.finalize().to_vec()
-            }
-            HashAlgorithm::SHA2_512 => {
-                let mut h = Sha512::new();
                 h.update(data);
                 h.finalize().to_vec()
             }
@@ -150,7 +142,7 @@ pub enum PubKeyType {
 impl PubKeyType {
     /// Byte code to embed in the payload.
     ///
-    /// Reserved range: 0x40..=0xFF (up to 192 key types).
+    /// Reserved range: 0x40..=0xFF (up to 192 public key types).
     pub fn code(self) -> u8 {
         match self {
             PubKeyType::MLDSA65 => 0x40,
@@ -182,11 +174,23 @@ pub struct AddressParams<'a> {
     pub pubkey_bytes: &'a [u8],
 }
 
+/// Errors that can occur during address encoding.
+#[derive(Error, Debug)]
+pub enum AddressEncodeError {
+    /// Invalid Bech32 structure or checksum
+    #[error("Bech32 error: {0}")]
+    Bech32(#[from] bech32::EncodeError),
+
+    /// A Bech32 string is at most 90 characters long [BIP-173]
+    #[error("A Bech32 string is at most 90 characters long: got {0}")]
+    InvalidEncodingLength(usize),
+}
+
 /// Encodes a Bech32m address from given params.
 ///
 /// # Errors
 /// Returns a `bech32::EncodeError` if the encode step fails.
-pub fn encode_address(params: &AddressParams) -> Result<String, bech32::EncodeError> {
+pub fn encode_address(params: &AddressParams) -> Result<String, AddressEncodeError> {
     // Hash the public key
     let digest = params.hash_alg.digest(params.pubkey_bytes);
 
@@ -199,7 +203,13 @@ pub fn encode_address(params: &AddressParams) -> Result<String, bech32::EncodeEr
     payload.extend(&digest);
 
     // Bech32m‑encode (adds the 6‑word checksum)
-    encode::<Bech32m>(params.network.hrp(), &payload)
+    let encoded = encode::<Bech32m>(params.network.hrp(), &payload)?;
+
+    if encoded.len() > MAX_ADDRESS_LENGTH {
+        return Err(AddressEncodeError::InvalidEncodingLength(encoded.len()));
+    }
+
+    Ok(encoded)
 }
 
 /// The decoded components of a Bech32m address.
@@ -345,15 +355,15 @@ mod tests {
         assert_eq!(decoded.pubkey_hash_bytes(), hash);
     }
 
-    /// Round‑trip test on Testnet with Sha512 + ML_DSA_87
+    /// Round‑trip test on Testnet with Sha256 + ML_DSA_87
     #[test]
-    fn roundtrip_testnet_sha512_ml_dsa_87() {
+    fn roundtrip_testnet_sha256_ml_dsa_87() {
         let key = b"world";
         let params = AddressParams {
             network: Network::Testnet,
             version: Version::V1,
             pubkey_type: PubKeyType::MLDSA87,
-            hash_alg: HashAlgorithm::SHA2_512,
+            hash_alg: HashAlgorithm::SHA2_256,
             pubkey_bytes: key,
         };
         let addr = encode_address(&params).unwrap();
@@ -365,7 +375,7 @@ mod tests {
         assert_eq!(decoded.hash_alg, params.hash_alg);
         assert_eq!(decoded.pubkey_hash, params.hash_alg.digest(key));
         assert_eq!(decoded.pubkey_hash_bytes(), params.hash_alg.digest(key));
-        let mut hasher = Sha512::new();
+        let mut hasher = Sha256::new();
         hasher.update(key);
         let hash = hasher.finalize().to_vec();
         assert_eq!(decoded.pubkey_hash_hex(), hex_encode(&hash));

@@ -1,6 +1,6 @@
 use pq_address_rs::{
-    AddressDecodeError, AddressParams, HashAlgorithm, Network, PubKeyType, Version, decode_address,
-    encode_address,
+    AddressDecodeError, AddressEncodeError, AddressParams, HashAlgorithm, Network, PubKeyType,
+    Version, decode_address, encode_address,
 };
 
 fn main() {
@@ -14,8 +14,13 @@ fn main() {
 
     let pq_addr = match encode_address(&params) {
         Ok(pq_addr) => pq_addr,
-        Err(e) => {
+        // Bech32‐level errors
+        Err(AddressEncodeError::Bech32(e)) => {
             eprintln!("Encoding error: {}", e);
+            std::process::exit(1);
+        }
+        Err(AddressEncodeError::InvalidEncodingLength(e)) => {
+            eprintln!("Invalid encoding length: {}", e);
             std::process::exit(1);
         }
     };
