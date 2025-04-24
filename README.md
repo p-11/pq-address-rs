@@ -11,7 +11,7 @@ Sharing a post‑quantum public key needs:
 3. A readable, typo‑resistant **encoding**.
 4. A clear **network flag** (production vs development).
 
-`pq‑address‑rs` provides all four. It lets you generate and parse addresses for any public‑key type (ML‑DSA, SLH‑DSA, etc.) and any hash algorithm (SHA‑256, SHA3-256, …), while guaranteeing future‑proof safety.
+`pq‑address‑rs` provides all four. It lets you generate and parse addresses for any public‑key type (ML‑DSA, SLH‑DSA, etc.), while guaranteeing future‑proof safety.
 
 ## Design & Justification
 
@@ -26,8 +26,7 @@ Sharing a post‑quantum public key needs:
 
 - **Disjoint byte ranges**
 
-  - Version codes in `0x00–0x0F` (up to 32 versions).
-  - HashAlgorithm codes in `0x20–0x3F` (up to 32 hash functions).
+  - Version codes in `0x00–0x3F` (up to 64 versions).
   - PubKeyType codes in `0x40–0xFF` (up to 192 public key types).
   - Any byte‑swap or mis‑read triggers a clear “unknown code” error.
 
@@ -37,7 +36,7 @@ Sharing a post‑quantum public key needs:
 
 - **Extendable**
 
-  - Add new `PubKeyType` or `HashAlgorithm` variants without breaking old addresses.
+  - Add new `PubKeyType` variants without breaking old addresses.
 
 ## Anatomy of a PQ address
 
@@ -57,8 +56,7 @@ Address example: `yp1qpqzqagfuk76p3mz62av07gdwk94kgnrlgque0z592678hck80sgum9fdgf
    - The payload bytes:
      1. Version
      2. PubKeyType
-     3. HashAlg
-     4. Raw pubkey hash digest
+     3. Raw pubkey hash digest
    - Converted into 5-bit words and then into Bech32 characters.
 
 4. **Checksum**
@@ -66,6 +64,12 @@ Address example: `yp1qpqzqagfuk76p3mz62av07gdwk94kgnrlgque0z592678hck80sgum9fdgf
    - Catches typos and bit-errors.
 
 Note: A Bech32 string is at most 90 characters long [BIP-173]
+
+## A Note on Hash Algorithms
+
+The default hash function for `pq-address-rs` is SHA-256.
+256 bit hash functions are currently considered secure against Grover's attack.
+Even if the preimage is recovered, it only reveals a PQ secure public key and thus Shor's is not applicable.
 
 ## Quickstart
 
@@ -79,7 +83,7 @@ Import `pq_address_rs`
 
 ```rust
 use pq_address_rs::{
-    AddressDecodeError, AddressParams, HashAlgorithm, Network, PubKeyType, Version, decode_address,
+    AddressDecodeError, AddressParams, Network, PubKeyType, Version, decode_address,
     encode_address,
 };
 ```
@@ -91,7 +95,6 @@ let params = AddressParams {
     network: Network::Mainnet,
     version: Version::V1,
     pubkey_type: PubKeyType::MLDSA,
-    hash_alg: HashAlgorithm::SHA2_256,
     pubkey_bytes: b"hello world",
 };
 
@@ -109,7 +112,6 @@ match decode_address(&pq_addr) {
         println!("Decoded Network: {:?}", decoded.network);
         println!("Decoded Version: {:?}", decoded.version);
         println!("Decoded PubKey Type: {:?}", decoded.pubkey_type);
-        println!("Decoded Hash Algorithm: {:?}", decoded.hash_alg);
         println!("Decoded PubKey Hash (hex): {}", decoded.pubkey_hash_hex());
     }
     Err(e) => eprintln!("Decoding error: {}", e),
@@ -145,7 +147,7 @@ enum AddressDecodeError {
     UnknownHrp(String),
 
     /// Payload too short
-    #[error("payload too short (need at least version+public key type+hash algorithm)")]
+    #[error("payload too short (need at least version+public key type)")]
     TooShort,
 
     /// First byte isn’t a known version code
@@ -155,10 +157,6 @@ enum AddressDecodeError {
     /// Second byte isn’t a known public key type
     #[error("unknown public key type code: 0x{0:02X}")]
     UnknownPubKeyType(u8),
-
-    /// Third byte isn’t a known hash algorithm
-    #[error("unknown hash algorithm code: 0x{0:02X}")]
-    UnknownHashAlg(u8),
 
     /// Digest length didn’t match the algorithm’s expectation
     #[error("invalid digest length: got {got}, expected {expected}")]

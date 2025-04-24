@@ -1,6 +1,6 @@
 use pq_address_rs::{
-    AddressDecodeError, AddressEncodeError, AddressParams, HashAlgorithm, Network, PubKeyType,
-    Version, decode_address, encode_address,
+    AddressDecodeError, AddressEncodeError, AddressParams, Network, PubKeyType, Version,
+    decode_address, encode_address,
 };
 
 fn main() {
@@ -8,7 +8,6 @@ fn main() {
         network: Network::Mainnet,
         version: Version::V1,
         pubkey_type: PubKeyType::MLDSA65,
-        hash_alg: HashAlgorithm::SHA2_256,
         pubkey_bytes: b"hello world!",
     };
 
@@ -31,7 +30,6 @@ fn main() {
             println!("Decoded Network          : {:?}", decoded.network);
             println!("Decoded Version          : {:?}", decoded.version);
             println!("Decoded PubKey Type      : {:?}", decoded.pubkey_type);
-            println!("Decoded Hash Algorithm   : {:?}", decoded.hash_alg);
             println!("Decoded PubKey Hash (hex): {}", decoded.pubkey_hash_hex());
         }
 
@@ -54,10 +52,6 @@ fn main() {
         // Second byte didn’t map to a known PubKeyType
         Err(AddressDecodeError::UnknownPubKeyType(code)) => {
             eprintln!("Unknown pubkey type code: 0x{:02X}", code);
-        }
-        // Third byte didn’t map to a known HashAlg
-        Err(AddressDecodeError::UnknownHashAlg(code)) => {
-            eprintln!("Unknown hash alg code: 0x{:02X}", code);
         }
         // Digest length didn’t match the algorithm’s expected size
         Err(AddressDecodeError::InvalidHashLength { got, expected }) => {

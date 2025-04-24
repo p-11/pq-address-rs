@@ -2,8 +2,8 @@
 //!
 //! This crate supports:
 //! - Mainnet vs Testnet via HRP.
-//! - Disjoint byte ranges for version, hash algorithm, and pubkey type.
-//! - Support for multiple hash algorithms and PQC public keys.
+//! - Disjoint byte ranges for version and pubkey type.
+//! - Support for multiple PQC public keys.
 //! - Full encode/decode round‑trip with Bech32m checksum per BIP‑350.
 
 use bech32::{Bech32m, Hrp, decode, encode};
@@ -51,7 +51,7 @@ impl TryFrom<&str> for Network {
 
 /// Address format version.
 ///
-/// Codes are in the range `0x00..=0x1F` (32 total slots):
+/// Codes are in the range `0x00..=0x3F` (64 total slots):
 /// - `0x00` = V1
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Version {
@@ -62,7 +62,7 @@ pub enum Version {
 impl Version {
     /// Byte code to embed in the payload.
     ///
-    /// Reserved range: 0x00..=0x1F (up to 32 versions).
+    /// Reserved range: 0x00..=0x3F (up to 64 versions).
     pub fn code(self) -> u8 {
         match self {
             Version::V1 => 0x00,
@@ -78,65 +78,18 @@ impl Version {
     }
 }
 
-/// Supported hash algorithms.
-///
-/// Codes are in the range `0x20..=0x3F` (32 total slots):
-/// - `0x20` = SHA2-256
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum HashAlgorithm {
-    /// SHA2-256, 32-byte output.
-    SHA2_256,
-}
-
-impl HashAlgorithm {
-    /// Byte code to embed in the payload.
-    ///
-    /// Reserved range: 0x20..=0x3F (up to 32 algorithms).
-    pub fn code(self) -> u8 {
-        match self {
-            HashAlgorithm::SHA2_256 => 0x20,
-        }
-    }
-
-    /// Reverse lookup from byte code to enum.
-    pub fn from_code(code: u8) -> Option<HashAlgorithm> {
-        match code {
-            0x20 => Some(HashAlgorithm::SHA2_256),
-            _ => None,
-        }
-    }
-
-    /// Expected digest length in bytes.
-    pub fn digest_length(self) -> usize {
-        match self {
-            HashAlgorithm::SHA2_256 => 32,
-        }
-    }
-
-    /// Compute the hash of the given data.
-    pub fn digest(self, data: &[u8]) -> Vec<u8> {
-        match self {
-            HashAlgorithm::SHA2_256 => {
-                let mut h = Sha256::new();
-                h.update(data);
-                h.finalize().to_vec()
-            }
-        }
-    }
-}
-
 /// Supported public-key types.
 ///
 /// Codes are in the range `0x40..=0xFF` (192 total slots),
 /// giving us plenty of room for future PQC schemes:
 /// - `0x40` = ML-DSA 65
-/// - `0x41` = ML-DSA 87
+/// - `0x41` = SLH-DSA SHA2 256 S
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum PubKeyType {
     /// ML-DSA 65 public key.
     MLDSA65,
-    /// ML-DSA 87 public key.
-    MLDSA87,
+    /// SLH-DSA SHA2 256 S public key.
+    SLHDSASHA2_256S,
 }
 
 impl PubKeyType {
@@ -146,7 +99,7 @@ impl PubKeyType {
     pub fn code(self) -> u8 {
         match self {
             PubKeyType::MLDSA65 => 0x40,
-            PubKeyType::MLDSA87 => 0x41,
+            PubKeyType::SLHDSASHA2_256S => 0x41,
         }
     }
 
@@ -154,9 +107,27 @@ impl PubKeyType {
     pub fn from_code(code: u8) -> Option<PubKeyType> {
         match code {
             0x40 => Some(PubKeyType::MLDSA65),
-            0x41 => Some(PubKeyType::MLDSA87),
+            0x41 => Some(PubKeyType::SLHDSASHA2_256S),
             _ => None,
         }
+    }
+}
+
+/// The default hash function for pq-address: SHA-256.
+///
+/// 256 bit hash function is currently considered secure against Grover's attack.
+/// Even if the preimage is recovered, it only reveals a PQ secure public key and thus Shor's is not applicable.
+pub struct Hasher;
+
+impl Hasher {
+    /// SHA-256 digest length (bytes).
+    pub const DIGEST_LENGTH: usize = 32;
+
+    /// Compute SHA-256(data).
+    pub fn digest(data: &[u8]) -> Vec<u8> {
+        let mut h = Sha256::new();
+        h.update(data);
+        h.finalize().to_vec()
     }
 }
 
@@ -168,8 +139,6 @@ pub struct AddressParams<'a> {
     pub version: Version,
     /// Which public‑key type
     pub pubkey_type: PubKeyType,
-    /// Which hash algorithm to use
-    pub hash_alg: HashAlgorithm,
     /// Raw public‑key bytes
     pub pubkey_bytes: &'a [u8],
 }
@@ -192,14 +161,13 @@ pub enum AddressEncodeError {
 /// Returns a `bech32::EncodeError` if the encode step fails.
 pub fn encode_address(params: &AddressParams) -> Result<String, AddressEncodeError> {
     // Hash the public key
-    let digest = params.hash_alg.digest(params.pubkey_bytes);
+    let digest = Hasher::digest(params.pubkey_bytes);
 
     // Build the raw payload:
-    //  [ version.code(), pubkey_type.code(), hash_alg.code(), digest bytes… ]
-    let mut payload = Vec::with_capacity(3 + digest.len());
+    //  [ version.code(), pubkey_type.code(), digest bytes… ]
+    let mut payload = Vec::with_capacity(2 + digest.len());
     payload.push(params.version.code());
     payload.push(params.pubkey_type.code());
-    payload.push(params.hash_alg.code());
     payload.extend(&digest);
 
     // Bech32m‑encode (adds the 6‑word checksum)
@@ -221,8 +189,6 @@ pub struct DecodedAddress {
     pub version: Version,
     /// Which public‑key type
     pub pubkey_type: PubKeyType,
-    /// Which hash algorithm
-    pub hash_alg: HashAlgorithm,
     /// The raw public key hash bytes
     pub pubkey_hash: Vec<u8>,
 }
@@ -262,10 +228,6 @@ pub enum AddressDecodeError {
     #[error("unknown public key type code: 0x{0:02X}")]
     UnknownPubKeyType(u8),
 
-    /// Third byte isn’t a known hash algorithm
-    #[error("unknown hash algorithm code: 0x{0:02X}")]
-    UnknownHashAlg(u8),
-
     /// Digest length didn’t match the algorithm’s expectation
     #[error("invalid digest length: got {got}, expected {expected}")]
     InvalidHashLength { got: usize, expected: usize },
@@ -300,13 +262,9 @@ pub fn decode_address(s: &str) -> Result<DecodedAddress, AddressDecodeError> {
     let p = bytes[1];
     let pubkey_type = PubKeyType::from_code(p).ok_or(AddressDecodeError::UnknownPubKeyType(p))?;
 
-    // Parse hash algorithm code
-    let h = bytes[2];
-    let hash_alg = HashAlgorithm::from_code(h).ok_or(AddressDecodeError::UnknownHashAlg(h))?;
-
     // Extract and verify digest length
-    let pubkey_hash = bytes[3..].to_vec();
-    let expected = hash_alg.digest_length();
+    let pubkey_hash = bytes[2..].to_vec();
+    let expected = Hasher::DIGEST_LENGTH;
     if pubkey_hash.len() != expected {
         return Err(AddressDecodeError::InvalidHashLength {
             got: pubkey_hash.len(),
@@ -318,7 +276,6 @@ pub fn decode_address(s: &str) -> Result<DecodedAddress, AddressDecodeError> {
         network,
         version,
         pubkey_type,
-        hash_alg,
         pubkey_hash,
     })
 }
@@ -335,7 +292,6 @@ mod tests {
             network: Network::Mainnet,
             version: Version::V1,
             pubkey_type: PubKeyType::MLDSA65,
-            hash_alg: HashAlgorithm::SHA2_256,
             pubkey_bytes: key,
         };
         let addr = encode_address(&params).unwrap();
@@ -344,9 +300,8 @@ mod tests {
         assert_eq!(decoded.network, params.network);
         assert_eq!(decoded.version, params.version);
         assert_eq!(decoded.pubkey_type, params.pubkey_type);
-        assert_eq!(decoded.hash_alg, params.hash_alg);
-        assert_eq!(decoded.pubkey_hash, params.hash_alg.digest(key));
-        assert_eq!(decoded.pubkey_hash_bytes(), params.hash_alg.digest(key));
+        assert_eq!(decoded.pubkey_hash, Hasher::digest(key));
+        assert_eq!(decoded.pubkey_hash_bytes(), Hasher::digest(key));
         let mut hasher = Sha256::new();
         hasher.update(key);
         let hash = hasher.finalize().to_vec();
@@ -362,8 +317,7 @@ mod tests {
         let params = AddressParams {
             network: Network::Testnet,
             version: Version::V1,
-            pubkey_type: PubKeyType::MLDSA87,
-            hash_alg: HashAlgorithm::SHA2_256,
+            pubkey_type: PubKeyType::SLHDSASHA2_256S,
             pubkey_bytes: key,
         };
         let addr = encode_address(&params).unwrap();
@@ -372,9 +326,8 @@ mod tests {
         assert_eq!(decoded.network, params.network);
         assert_eq!(decoded.version, params.version);
         assert_eq!(decoded.pubkey_type, params.pubkey_type);
-        assert_eq!(decoded.hash_alg, params.hash_alg);
-        assert_eq!(decoded.pubkey_hash, params.hash_alg.digest(key));
-        assert_eq!(decoded.pubkey_hash_bytes(), params.hash_alg.digest(key));
+        assert_eq!(decoded.pubkey_hash, Hasher::digest(key));
+        assert_eq!(decoded.pubkey_hash_bytes(), Hasher::digest(key));
         let mut hasher = Sha256::new();
         hasher.update(key);
         let hash = hasher.finalize().to_vec();
