@@ -4,7 +4,7 @@ A Rust library for encoding and decoding post‑quantum public keys into human�
 
 ## Motivation
 
-Sharing a post‑quantum public key over text or QR code needs:
+Sharing a post‑quantum public key needs:
 
 1. A **hash** of the public key for privacy and fixed length.
 2. A strong **checksum** to catch typos and errors.
@@ -112,39 +112,58 @@ match decode_address(&pq_addr) {
         println!("Decoded Hash Algorithm: {:?}", decoded.hash_alg);
         println!("Decoded PubKey Hash (hex): {}", decoded.pubkey_hash_hex());
     }
-
-    // Bech32‐level (format/checksum) errors
-    Err(AddressDecodeError::Bech32(e)) => {
-        eprintln!("Bech32 decoding error: {}", e);
-    }
-    // Unrecognized Human-Readable Part (HRP)
-    Err(AddressDecodeError::UnknownHrp(hrp)) => {
-        eprintln!("Unknown HRP “{}”", hrp);
-    }
-    // Payload was too short to contain version/pub key type/hash alg + digest
-    Err(AddressDecodeError::TooShort) => {
-        eprintln!("Payload too short");
-    }
-    // First byte didn’t map to a known Version
-    Err(AddressDecodeError::UnknownVersion(code)) => {
-        eprintln!("Unknown version code: 0x{:02X}", code);
-    }
-    // Second byte didn’t map to a known PubKeyType
-    Err(AddressDecodeError::UnknownPubKeyType(code)) => {
-        eprintln!("Unknown pubkey type code: 0x{:02X}", code);
-    }
-    // Third byte didn’t map to a known HashAlg
-    Err(AddressDecodeError::UnknownHashAlg(code)) => {
-        eprintln!("Unknown hash alg code: 0x{:02X}", code);
-    }
-    // Digest length didn’t match the algorithm’s expected size
-    Err(AddressDecodeError::InvalidHashLength { got, expected }) => {
-        eprintln!(
-            "Invalid hash length: got {} bytes, expected {}",
-            got, expected
-        );
-    }
+    Err(e) => eprintln!("Decoding error: {}", e),
 };
+```
+
+## Errors
+
+Encoding errors:
+
+```rust
+enum AddressEncodeError {
+    /// Invalid Bech32 structure or checksum
+    #[error("Bech32 error: {0}")]
+    Bech32(#[from] bech32::EncodeError),
+
+    /// A Bech32 string is at most 90 characters long [BIP-173]
+    #[error("A Bech32 string is at most 90 characters long: got {0}")]
+    InvalidEncodingLength(usize),
+}
+```
+
+Decoding errors:
+
+```rust
+enum AddressDecodeError {
+    /// Invalid Bech32 structure or checksum
+    #[error("Bech32 error: {0}")]
+    Bech32(#[from] bech32::DecodeError),
+
+    /// HRP wasn’t `ml` or `tl`
+    #[error("unknown HRP: {0}")]
+    UnknownHrp(String),
+
+    /// Payload too short
+    #[error("payload too short (need at least version+public key type+hash algorithm)")]
+    TooShort,
+
+    /// First byte isn’t a known version code
+    #[error("unknown version code: 0x{0:02X}")]
+    UnknownVersion(u8),
+
+    /// Second byte isn’t a known public key type
+    #[error("unknown public key type code: 0x{0:02X}")]
+    UnknownPubKeyType(u8),
+
+    /// Third byte isn’t a known hash algorithm
+    #[error("unknown hash algorithm code: 0x{0:02X}")]
+    UnknownHashAlg(u8),
+
+    /// Digest length didn’t match the algorithm’s expectation
+    #[error("invalid digest length: got {got}, expected {expected}")]
+    InvalidHashLength { got: usize, expected: usize },
+}
 ```
 
 ## Contributing

@@ -1,8 +1,8 @@
-//! A simple Bech32m address encoder/decoder for PQC public keys.
+//! A Bech32m address encoder/decoder for PQC public keys.
 //!
 //! This crate supports:
-//! - Mainnet vs Testnet via HRP (`"yp"`/`"rh"`).
-//! - Disjoint byte ranges for version (0x00–0x1F), hash algorithm (0x20–0x3F), pubkey type (0x40–0xFF).
+//! - Mainnet vs Testnet via HRP.
+//! - Disjoint byte ranges for version, hash algorithm, and pubkey type.
 //! - Support for multiple hash algorithms and PQC public keys.
 //! - Full encode/decode round‑trip with Bech32m checksum per BIP‑350.
 
