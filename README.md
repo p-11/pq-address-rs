@@ -94,7 +94,7 @@ Encoding
 let params = AddressParams {
     network: Network::Mainnet,
     version: Version::V1,
-    pubkey_type: PubKeyType::MLDSA,
+    pubkey_type: PubKeyType::MLDSA65,
     pubkey_bytes: b"hello world",
 };
 
@@ -142,7 +142,7 @@ enum AddressDecodeError {
     #[error("Bech32 error: {0}")]
     Bech32(#[from] bech32::DecodeError),
 
-    /// HRP wasn’t `ml` or `tl`
+    /// HRP wasn’t `yp` or `rh`
     #[error("unknown HRP: {0}")]
     UnknownHrp(String),
 

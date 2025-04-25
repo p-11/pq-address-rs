@@ -212,7 +212,7 @@ pub enum AddressDecodeError {
     #[error("Bech32 error: {0}")]
     Bech32(#[from] bech32::DecodeError),
 
-    /// HRP wasn’t `ml` or `tl`
+    /// HRP wasn’t `yp` or `rh`
     #[error("unknown HRP: {0}")]
     UnknownHrp(String),
 
@@ -286,7 +286,7 @@ mod tests {
 
     /// Round‑trip test on Mainnet with SHA‑256 + ML‑DSA_65
     #[test]
-    fn roundtrip_mainnet_sha256_mldsa_65() {
+    fn roundtrip_mainnet_mldsa_65() {
         let key = b"hello";
         let params = AddressParams {
             network: Network::Mainnet,
@@ -312,7 +312,7 @@ mod tests {
 
     /// Round‑trip test on Testnet with Sha256 + ML_DSA_87
     #[test]
-    fn roundtrip_testnet_sha256_ml_dsa_87() {
+    fn roundtrip_testnet_slhdsasha2256s() {
         let key = b"world";
         let params = AddressParams {
             network: Network::Testnet,
