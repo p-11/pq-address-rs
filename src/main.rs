@@ -15,15 +15,15 @@ fn main() {
         Ok(pq_addr) => pq_addr,
         // Bech32‐level errors
         Err(AddressEncodeError::Bech32(e)) => {
-            eprintln!("Encoding error: {}", e);
+            eprintln!("Encoding error: {e}");
             std::process::exit(1);
         }
         Err(AddressEncodeError::InvalidEncodingLength(e)) => {
-            eprintln!("Invalid encoding length: {}", e);
+            eprintln!("Invalid encoding length: {e}");
             std::process::exit(1);
         }
     };
-    println!("Encoded Address          : {}", pq_addr);
+    println!("Encoded Address          : {pq_addr}");
 
     match decode_address(&pq_addr) {
         Ok(decoded) => {
@@ -35,11 +35,11 @@ fn main() {
 
         // Bech32‐level (format/checksum) errors
         Err(AddressDecodeError::Bech32(e)) => {
-            eprintln!("Bech32 decoding error: {}", e);
+            eprintln!("Bech32 decoding error: {e}");
         }
         // Unrecognized Human-Readable Part (HRP)
         Err(AddressDecodeError::UnknownHrp(hrp)) => {
-            eprintln!("Unknown HRP “{}”", hrp);
+            eprintln!("Unknown HRP “{hrp}”");
         }
         // Payload was too short to contain version/pub key type/hash alg + digest
         Err(AddressDecodeError::TooShort) => {
@@ -47,18 +47,17 @@ fn main() {
         }
         // First byte didn’t map to a known Version
         Err(AddressDecodeError::UnknownVersion(code)) => {
-            eprintln!("Unknown version code: 0x{:02X}", code);
+            eprintln!("Unknown version code: 0x{code:02X}");
         }
         // Second byte didn’t map to a known PubKeyType
         Err(AddressDecodeError::UnknownPubKeyType(code)) => {
-            eprintln!("Unknown pubkey type code: 0x{:02X}", code);
+            eprintln!("Unknown pubkey type code: 0x{code:02X}");
         }
         // Digest length didn’t match the algorithm’s expected size
         Err(AddressDecodeError::InvalidHashLength { got, expected }) => {
             eprintln!(
-                "Invalid hash length: got {} bytes, expected {}",
-                got, expected
+                "Invalid hash length: got {got} bytes, expected {expected}"
             );
         }
-    };
+    }
 }

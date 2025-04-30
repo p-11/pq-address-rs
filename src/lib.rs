@@ -28,6 +28,13 @@ pub enum Network {
 
 impl Network {
     /// Returns the Bech32m HRP for this network.
+    ///
+    /// # Panics
+    ///
+    /// This will panic if the hard-coded HRP literal fails to parse.
+    /// In practice `"yp"` and `"rh"` are spec-defined and known to be valid given `try_from`,
+    /// so this only ever fires if there’s a bug in this code or in `Hrp::parse`.
+    #[must_use]
     pub fn hrp(self) -> Hrp {
         match self {
             Network::Mainnet => Hrp::parse("yp").expect("Mainnet HRP is valid"),
@@ -63,6 +70,7 @@ impl Version {
     /// Byte code to embed in the payload.
     ///
     /// Reserved range: 0x00..=0x3F (up to 64 versions).
+    #[must_use]
     pub fn code(self) -> u8 {
         match self {
             Version::V1 => 0x00,
@@ -70,6 +78,7 @@ impl Version {
     }
 
     /// Reverse lookup from byte code to enum.
+    #[must_use]
     pub fn from_code(code: u8) -> Option<Version> {
         match code {
             0x00 => Some(Version::V1),
@@ -96,6 +105,7 @@ impl PubKeyType {
     /// Byte code to embed in the payload.
     ///
     /// Reserved range: 0x40..=0xFF (up to 192 public key types).
+    #[must_use]
     pub fn code(self) -> u8 {
         match self {
             PubKeyType::MLDSA65 => 0x40,
@@ -104,6 +114,7 @@ impl PubKeyType {
     }
 
     /// Reverse lookup from byte code to enum.
+    #[must_use]
     pub fn from_code(code: u8) -> Option<PubKeyType> {
         match code {
             0x40 => Some(PubKeyType::MLDSA65),
@@ -124,6 +135,7 @@ impl Hasher {
     pub const DIGEST_LENGTH: usize = 32;
 
     /// Compute SHA-256(data).
+    #[must_use]
     pub fn digest(data: &[u8]) -> Vec<u8> {
         let mut h = Sha256::new();
         h.update(data);
@@ -171,7 +183,8 @@ pub fn encode_address(params: &AddressParams) -> Result<String, AddressEncodeErr
     payload.extend(&digest);
 
     // Bech32m‑encode (adds the 6‑word checksum)
-    let encoded = encode::<Bech32m>(params.network.hrp(), &payload)?;
+    let hrp = params.network.hrp();
+    let encoded = encode::<Bech32m>(hrp, &payload)?;
 
     if encoded.len() > MAX_ADDRESS_LENGTH {
         return Err(AddressEncodeError::InvalidEncodingLength(encoded.len()));
@@ -195,11 +208,13 @@ pub struct DecodedAddress {
 
 impl DecodedAddress {
     /// The raw public key hash bytes
+    #[must_use]
     pub fn pubkey_hash_bytes(&self) -> &[u8] {
         &self.pubkey_hash
     }
 
     /// The hex representation of the public key hash
+    #[must_use]
     pub fn pubkey_hash_hex(&self) -> String {
         hex_encode(&self.pubkey_hash)
     }
@@ -284,7 +299,7 @@ pub fn decode_address(s: &str) -> Result<DecodedAddress, AddressDecodeError> {
 mod tests {
     use super::*;
 
-    /// Round‑trip test on Mainnet with SHA‑256 + ML‑DSA_65
+    /// Round‑trip test on Mainnet with SHA‑256 + `ML‑DSA_65`
     #[test]
     fn roundtrip_mainnet_mldsa_65() {
         let key = b"hello";
@@ -310,7 +325,7 @@ mod tests {
         assert_eq!(decoded.pubkey_hash_bytes(), hash);
     }
 
-    /// Round‑trip test on Testnet with Sha256 + ML_DSA_87
+    /// Round‑trip test on Testnet with Sha256 + `ML_DSA_87`
     #[test]
     fn roundtrip_testnet_slhdsasha2256s() {
         let key = b"world";
