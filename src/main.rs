@@ -55,9 +55,7 @@ fn main() {
         }
         // Digest length didn’t match the algorithm’s expected size
         Err(AddressDecodeError::InvalidHashLength { got, expected }) => {
-            eprintln!(
-                "Invalid hash length: got {got} bytes, expected {expected}"
-            );
+            eprintln!("Invalid hash length: got {got} bytes, expected {expected}");
         }
     }
 }
