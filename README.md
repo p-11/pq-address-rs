@@ -42,7 +42,7 @@ Sharing a post‑quantum public key needs:
 
 ## Anatomy of a PQ address
 
-Address example: `yp1qpqzqagfuk76p3mz62av07gdwk94kgnrlgque0z592678hck80sgum9fdgfqma`
+Address example: `yp1qpqg39uw700gcctpahe650p9zlzpnjt60cpz09m4kx7ncz8922635hs5cdx7q`
 
 1. **HRP** (`yp` / `rh`)
 
