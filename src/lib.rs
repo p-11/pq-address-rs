@@ -97,7 +97,7 @@ impl Version {
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum PubKeyType {
     /// ML-DSA 44 public key.
-    MLDSA44,
+    MlDsa44,
 }
 
 impl PubKeyType {
@@ -107,7 +107,7 @@ impl PubKeyType {
     #[must_use]
     pub fn code(self) -> u8 {
         match self {
-            PubKeyType::MLDSA44 => 0x40,
+            PubKeyType::MlDsa44 => 0x40,
         }
     }
 
@@ -115,8 +115,16 @@ impl PubKeyType {
     #[must_use]
     pub fn from_code(code: u8) -> Option<PubKeyType> {
         match code {
-            0x40 => Some(PubKeyType::MLDSA44),
+            0x40 => Some(PubKeyType::MlDsa44),
             _ => None,
+        }
+    }
+
+    /// Returns the public‐key length in bytes for this algorithm.
+    #[must_use]
+    pub fn pubkey_length(self) -> usize {
+        match self {
+            PubKeyType::MlDsa44 => 1312,
         }
     }
 }
@@ -159,9 +167,13 @@ pub enum AddressEncodeError {
     #[error("Bech32 error: {0}")]
     Bech32(#[from] bech32::EncodeError),
 
-    /// A PQ address is 67 characters long
-    #[error("A PQ address is 67 characters long: got {0}")]
+    /// A PQ address is 64 characters long
+    #[error("A PQ address is 64 characters long: got {0}")]
     InvalidEncodingLength(usize),
+
+    /// Invalid public key length
+    #[error("Invalid public key length: expected {0}, got {1}")]
+    InvalidPubKeyLength(usize, usize),
 }
 
 /// Encodes a Bech32m address from given params.
@@ -169,6 +181,15 @@ pub enum AddressEncodeError {
 /// # Errors
 /// Returns a `bech32::EncodeError` if the encode step fails.
 pub fn encode_address(params: &AddressParams) -> Result<String, AddressEncodeError> {
+    // Check pubkey length
+    let epected_pubkey_length = params.pubkey_type.pubkey_length();
+    if epected_pubkey_length != params.pubkey_bytes.len() {
+        return Err(AddressEncodeError::InvalidPubKeyLength(
+            epected_pubkey_length,
+            params.pubkey_bytes.len(),
+        ));
+    }
+
     // Hash the public key
     let digest = Hasher::digest(params.pubkey_bytes);
 
@@ -295,53 +316,72 @@ pub fn decode_address(s: &str) -> Result<DecodedAddress, AddressDecodeError> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use base64::{Engine, engine::general_purpose};
 
     /// Round‑trip test on Mainnet with SHA‑256 + `ML‑DSA 44`
     #[test]
     fn roundtrip_mainnet_mldsa_44() {
-        let key = b"hello world!";
+        let ml_dsa_44_pub_key_str = "e+ffcul9XkuQCkiCEYX2ES6KMGJ9c7+Z0PFfhnJRckbaHzh4EH9hcEkUoFZ4gK2ta6/xPzgxB1yTT92wPZw8SmrK3DeLMz9mkst0IWkSzJ/TPPHRcSYJekO+CLV8k7uXsGSSoK4fbLqkX8leQFMCzjzRYg06zb3SD7iQwK3O8dP2WWLa9PkBMl1LECCBtTHrxoqyYtKopNbn3wICOOxI1jjTTL46AZnE6Vw2vQdLB/Qg59Pq6su8P3zEqBbsVPwPpT9ZbBNCHE+puWjdYnOfttj6DZ748CRHibQ9WTkH+VpxssIxU62nsYes/fV85nDozwddZggZoLfRsmSlG1Yz6h4m5hMMu9Nku9myTTw4UCiGSxZmad+yIjl7hh6J3wDaLMDA6SXajLSXTk2RwmnsEUlYs+uXS6Wj5wzg+bLQDQVMkU+doOf4vPTArf4uwzJdZ9Ghp8vjHd+rQgKjuo+Hy+HWz4JgvaQXlln+3yF0eY4/v01Bhe8BwVCbFZX8ts2Ay53gJmZEtsnXw3d5xedAMO9LJt4UqwovnmWCuApzAG9jyvG3Wxxe572E725S4vLtgnESzfrsD3wWo/A0oP+wk4oOFjhRDdVwHzwBDiHPhl43b/lt6omQuxK+xF0BJ77X/VhAoCx5zwIQ1GnmtXmP5xqx8f+e9ceFWNSxBPVKakKx/BveCxF1uOLc7DZUFLDVxRBURiF4BQX/670+FaYF2BWS3XtxfCqxaCz3F177qUev3pYuwpvSIj6WNSmU8uyxvibSzvYtA50gQtznTfteWja14B8AB+rgagz5nEzRzO7u1+QmxbdvEyBKvmWzNtnvsNqee4LhU9sl6rPdyUScmDrCPVLiPhrqY/sBVfxzX6z40suflYFPYU+fE6lApXnpyDB8he25DmnmPYTEsCq9d2uYaYTSBAgeir0qi9Jnjj/mcJ/3sNwwTlh7Tp6ahJlqWEUJ4myGxcHEesgWAeIrqJ6bhHTxP1n+do4ffry4CMcAjoAPAwYY0JUTYANy722LbOgiN+z5KUryC/MYjw/azOHFcpYjsGR60fARG03yVBgNBuD5okkmxtrAGdS4w85UDMAa/dwobUI5bdigFHP0Av6hHQ5uxeaxt1gAO53veGmA8aIOidhtZyHhlv+ANl9VYyZMOdPP1DjBTd8AQTIGR2JglmGzE8/00Ndx736MNdVzxNG0iKOvLlgl3cd1cEjW6hfC47juSDCgZTs9oPeo2mr1qvtak7zVd/yByjP9KHh0mjCi3cZDButaTe/oic4bdf24xQDtahSEJpAf49i9gzIpqxG92pyM7HRaVSvScFmCNnNKLJSDCeYw4+zlU+jawGKPjX6ebFDGFV1gNiPvkZdYd/5UXFwpHt5saj/Lgfoe/BtJWUx53TNkYlTNytflgV/ssFo8k9aYlIq2SDDKeZdlZexeNJOvhr8yntOQzLK6WWVONUgilTFNKX3+NQTmMR1LhA7VSP17+/3NjM0wEaz/JpKRoqMMvrgzl2A/6s019UMoT81hGXNtk9Ed8vxtdeNi1BC+SHWWyazundxXMQ4/gD7PnJXQJduz0QZ8quxRQZZTn+u+t1hKyMQikRKqephJaIQv9NLnKffPncEii9ukfRuLLCy7hPFuAho1Bfgi6rJMN0AxlX9URe6LB6vjLMNdTvWVqCHtBvay4scJg58my00razBF8BhQe7db+UJiv5JwADSJ2fwO/oooReksH3Sv1U4UOx5Y7kK8bbChFg==";
+
+        let pub_key_bytes = general_purpose::STANDARD
+            .decode(ml_dsa_44_pub_key_str)
+            .expect("valid base64");
+
         let params = AddressParams {
             network: Network::Mainnet,
             version: Version::V1,
-            pubkey_type: PubKeyType::MLDSA44,
-            pubkey_bytes: key,
+            pubkey_type: PubKeyType::MlDsa44,
+            pubkey_bytes: &pub_key_bytes,
         };
         let addr = encode_address(&params).unwrap();
+        assert_eq!(
+            addr,
+            "yp1qpqg39uw700gcctpahe650p9zlzpnjt60cpz09m4kx7ncz8922635hs5cdx7q"
+        );
         assert!(addr.starts_with("yp"));
         let decoded = decode_address(&addr).unwrap();
         assert_eq!(decoded.network, params.network);
         assert_eq!(decoded.version, params.version);
         assert_eq!(decoded.pubkey_type, params.pubkey_type);
-        assert_eq!(decoded.pubkey_hash, Hasher::digest(key));
-        assert_eq!(decoded.pubkey_hash_bytes(), Hasher::digest(key));
+        assert_eq!(decoded.pubkey_hash, Hasher::digest(&pub_key_bytes));
+        assert_eq!(decoded.pubkey_hash_bytes(), Hasher::digest(&pub_key_bytes));
         let mut hasher = Sha256::new();
-        hasher.update(key);
+        hasher.update(pub_key_bytes);
         let hash = hasher.finalize().to_vec();
         assert_eq!(decoded.pubkey_hash_hex(), hex_encode(&hash));
         assert_eq!(decoded.pubkey_hash, hash);
         assert_eq!(decoded.pubkey_hash_bytes(), hash);
     }
 
-    /// Round‑trip test on Testnet with Sha256 + `ML-DSA 44`
+    /// Round‑trip test on Testnet with `ML-DSA 44`
     #[test]
     fn roundtrip_testnet_mldsa_44() {
-        let key = b"world";
+        let ml_dsa_44_pub_key_str = "e+ffcul9XkuQCkiCEYX2ES6KMGJ9c7+Z0PFfhnJRckbaHzh4EH9hcEkUoFZ4gK2ta6/xPzgxB1yTT92wPZw8SmrK3DeLMz9mkst0IWkSzJ/TPPHRcSYJekO+CLV8k7uXsGSSoK4fbLqkX8leQFMCzjzRYg06zb3SD7iQwK3O8dP2WWLa9PkBMl1LECCBtTHrxoqyYtKopNbn3wICOOxI1jjTTL46AZnE6Vw2vQdLB/Qg59Pq6su8P3zEqBbsVPwPpT9ZbBNCHE+puWjdYnOfttj6DZ748CRHibQ9WTkH+VpxssIxU62nsYes/fV85nDozwddZggZoLfRsmSlG1Yz6h4m5hMMu9Nku9myTTw4UCiGSxZmad+yIjl7hh6J3wDaLMDA6SXajLSXTk2RwmnsEUlYs+uXS6Wj5wzg+bLQDQVMkU+doOf4vPTArf4uwzJdZ9Ghp8vjHd+rQgKjuo+Hy+HWz4JgvaQXlln+3yF0eY4/v01Bhe8BwVCbFZX8ts2Ay53gJmZEtsnXw3d5xedAMO9LJt4UqwovnmWCuApzAG9jyvG3Wxxe572E725S4vLtgnESzfrsD3wWo/A0oP+wk4oOFjhRDdVwHzwBDiHPhl43b/lt6omQuxK+xF0BJ77X/VhAoCx5zwIQ1GnmtXmP5xqx8f+e9ceFWNSxBPVKakKx/BveCxF1uOLc7DZUFLDVxRBURiF4BQX/670+FaYF2BWS3XtxfCqxaCz3F177qUev3pYuwpvSIj6WNSmU8uyxvibSzvYtA50gQtznTfteWja14B8AB+rgagz5nEzRzO7u1+QmxbdvEyBKvmWzNtnvsNqee4LhU9sl6rPdyUScmDrCPVLiPhrqY/sBVfxzX6z40suflYFPYU+fE6lApXnpyDB8he25DmnmPYTEsCq9d2uYaYTSBAgeir0qi9Jnjj/mcJ/3sNwwTlh7Tp6ahJlqWEUJ4myGxcHEesgWAeIrqJ6bhHTxP1n+do4ffry4CMcAjoAPAwYY0JUTYANy722LbOgiN+z5KUryC/MYjw/azOHFcpYjsGR60fARG03yVBgNBuD5okkmxtrAGdS4w85UDMAa/dwobUI5bdigFHP0Av6hHQ5uxeaxt1gAO53veGmA8aIOidhtZyHhlv+ANl9VYyZMOdPP1DjBTd8AQTIGR2JglmGzE8/00Ndx736MNdVzxNG0iKOvLlgl3cd1cEjW6hfC47juSDCgZTs9oPeo2mr1qvtak7zVd/yByjP9KHh0mjCi3cZDButaTe/oic4bdf24xQDtahSEJpAf49i9gzIpqxG92pyM7HRaVSvScFmCNnNKLJSDCeYw4+zlU+jawGKPjX6ebFDGFV1gNiPvkZdYd/5UXFwpHt5saj/Lgfoe/BtJWUx53TNkYlTNytflgV/ssFo8k9aYlIq2SDDKeZdlZexeNJOvhr8yntOQzLK6WWVONUgilTFNKX3+NQTmMR1LhA7VSP17+/3NjM0wEaz/JpKRoqMMvrgzl2A/6s019UMoT81hGXNtk9Ed8vxtdeNi1BC+SHWWyazundxXMQ4/gD7PnJXQJduz0QZ8quxRQZZTn+u+t1hKyMQikRKqephJaIQv9NLnKffPncEii9ukfRuLLCy7hPFuAho1Bfgi6rJMN0AxlX9URe6LB6vjLMNdTvWVqCHtBvay4scJg58my00razBF8BhQe7db+UJiv5JwADSJ2fwO/oooReksH3Sv1U4UOx5Y7kK8bbChFg==";
+
+        let pub_key_bytes = general_purpose::STANDARD
+            .decode(ml_dsa_44_pub_key_str)
+            .expect("valid base64");
+
         let params = AddressParams {
             network: Network::Testnet,
             version: Version::V1,
-            pubkey_type: PubKeyType::MLDSA44,
-            pubkey_bytes: key,
+            pubkey_type: PubKeyType::MlDsa44,
+            pubkey_bytes: &pub_key_bytes,
         };
         let addr = encode_address(&params).unwrap();
+        assert_eq!(
+            addr,
+            "rh1qpqg39uw700gcctpahe650p9zlzpnjt60cpz09m4kx7ncz8922635hsmmfzpd"
+        );
         assert!(addr.starts_with("rh"));
         let decoded = decode_address(&addr).unwrap();
         assert_eq!(decoded.network, params.network);
         assert_eq!(decoded.version, params.version);
         assert_eq!(decoded.pubkey_type, params.pubkey_type);
-        assert_eq!(decoded.pubkey_hash, Hasher::digest(key));
-        assert_eq!(decoded.pubkey_hash_bytes(), Hasher::digest(key));
+        assert_eq!(decoded.pubkey_hash, Hasher::digest(&pub_key_bytes));
+        assert_eq!(decoded.pubkey_hash_bytes(), Hasher::digest(&pub_key_bytes));
         let mut hasher = Sha256::new();
-        hasher.update(key);
+        hasher.update(pub_key_bytes);
         let hash = hasher.finalize().to_vec();
         assert_eq!(decoded.pubkey_hash_hex(), hex_encode(&hash));
         assert_eq!(decoded.pubkey_hash, hash);

@@ -98,7 +98,7 @@ Encoding
 let params = AddressParams {
     network: Network::Mainnet,
     version: Version::V1,
-    pubkey_type: PubKeyType::MLDSA44,
+    pubkey_type: PubKeyType::MlDsa44,
     pubkey_bytes: <PUB_KEY_BYTES>,
 };
 
@@ -132,9 +132,13 @@ enum AddressEncodeError {
     #[error("Bech32 error: {0}")]
     Bech32(#[from] bech32::EncodeError),
 
-    /// A PQ address is 67 characters long
-    #[error("A PQ address is 67 characters long: got {0}")]
+    /// A PQ address is 64 characters long
+    #[error("A PQ address is 64 characters long: got {0}")]
     InvalidEncodingLength(usize),
+
+    /// Invalid public key length
+    #[error("Invalid public key length: expected {0}, got {1}")]
+    InvalidPubKeyLength(usize, usize),
 }
 ```
 
