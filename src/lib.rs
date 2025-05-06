@@ -182,10 +182,10 @@ pub enum AddressEncodeError {
 /// Returns a `bech32::EncodeError` if the encode step fails.
 pub fn encode_address(params: &AddressParams) -> Result<String, AddressEncodeError> {
     // Check pubkey length
-    let epected_pubkey_length = params.pubkey_type.pubkey_length();
-    if epected_pubkey_length != params.pubkey_bytes.len() {
+    let expected_pubkey_length = params.pubkey_type.pubkey_length();
+    if expected_pubkey_length != params.pubkey_bytes.len() {
         return Err(AddressEncodeError::InvalidPubKeyLength(
-            epected_pubkey_length,
+            expected_pubkey_length,
             params.pubkey_bytes.len(),
         ));
     }
