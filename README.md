@@ -1,4 +1,4 @@
-# pq‑address‑rs
+# pq_address
 
 A Rust library for encoding and decoding post‑quantum public keys into human‑friendly Bech32m addresses.
 
@@ -11,7 +11,7 @@ Sharing a post‑quantum public key needs:
 3. A readable, typo‑resistant **encoding**.
 4. A clear **network flag** (production vs development).
 
-`pq‑address‑rs` provides all four. It lets you generate and parse addresses for any public‑key type (ML‑DSA, SLH‑DSA, etc.), while guaranteeing future‑proof safety.
+`pq_address` provides all four. It lets you generate and parse addresses for any public‑key type (ML‑DSA, SLH‑DSA, etc.), while guaranteeing future‑proof safety.
 
 ## Design & Justification
 
@@ -29,6 +29,8 @@ Sharing a post‑quantum public key needs:
   - Version codes in `0x00–0x3F` (up to 64 versions).
   - PubKeyType codes in `0x40–0xFF` (up to 192 public key types).
   - Any byte‑swap or mis‑read triggers a clear “unknown code” error.
+
+  By carving out non-overlapping slots for versions (0x00–0x3F) and public key types (0x40–0xFF), parsing becomes trivial—and any stray or swapped byte instantly flags itself as an “unknown code,” preventing silent failures.
 
 - **HRP flag**
 
@@ -63,11 +65,13 @@ Address example: `yp1qpqzqagfuk76p3mz62av07gdwk94kgnrlgque0z592678hck80sgum9fdgf
    - 6 Bech32 characters (BIP-350)
    - Catches typos and bit-errors.
 
+PQ address length is 64 characters.
+
 Note: A Bech32 string is at most 90 characters long [BIP-173]
 
 ## A Note on Hash Algorithms
 
-The default hash function for `pq-address-rs` is SHA-256.
+The default hash function for `pq_address` is SHA-256.
 256 bit hash functions are currently considered secure against Grover's attack.
 Even if the preimage is recovered, it only reveals a PQ secure public key and thus Shor's is not applicable.
 
@@ -76,13 +80,13 @@ Even if the preimage is recovered, it only reveals a PQ secure public key and th
 Add to your `Cargo.toml`:
 
 ```bash
-cargo add pq-address-rs
+cargo add pq_address
 ```
 
-Import `pq_address_rs`
+Import `pq_address`
 
 ```rust
-use pq_address_rs::{
+use pq_address::{
     AddressDecodeError, AddressParams, Network, PubKeyType, Version, decode_address,
     encode_address,
 };
@@ -94,8 +98,8 @@ Encoding
 let params = AddressParams {
     network: Network::Mainnet,
     version: Version::V1,
-    pubkey_type: PubKeyType::MLDSA65,
-    pubkey_bytes: b"hello world",
+    pubkey_type: PubKeyType::MLDSA44,
+    pubkey_bytes: <PUB_KEY_BYTES>,
 };
 
 match encode_address(&params) {
@@ -128,8 +132,8 @@ enum AddressEncodeError {
     #[error("Bech32 error: {0}")]
     Bech32(#[from] bech32::EncodeError),
 
-    /// A Bech32 string is at most 90 characters long [BIP-173]
-    #[error("A Bech32 string is at most 90 characters long: got {0}")]
+    /// A PQ address is 67 characters long
+    #[error("A PQ address is 67 characters long: got {0}")]
     InvalidEncodingLength(usize),
 }
 ```

@@ -1,4 +1,4 @@
-use pq_address_rs::{
+use pq_address::{
     AddressDecodeError, AddressEncodeError, AddressParams, Network, PubKeyType, Version,
     decode_address, encode_address,
 };
@@ -7,7 +7,7 @@ fn main() {
     let params = AddressParams {
         network: Network::Mainnet,
         version: Version::V1,
-        pubkey_type: PubKeyType::MLDSA65,
+        pubkey_type: PubKeyType::MLDSA44,
         pubkey_bytes: b"hello world!",
     };
 

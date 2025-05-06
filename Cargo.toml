@@ -1,5 +1,5 @@
 [package]
-name = "pq_address_rs"
+name = "pq_address"
 version = "0.1.0"
 edition = "2024"
 authors = ["Conor Deegan <cd@projecteleven.com>"]

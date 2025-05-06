@@ -13,7 +13,8 @@ use std::convert::TryFrom;
 use thiserror::Error;
 
 /// A Bech32 string is at most 90 characters long [BIP-173]
-const MAX_ADDRESS_LENGTH: usize = 90;
+/// PQ address length is 64 characters.
+const ADDRESS_LENGTH: usize = 64;
 
 /// Which network you’re on.
 ///
@@ -91,14 +92,12 @@ impl Version {
 ///
 /// Codes are in the range `0x40..=0xFF` (192 total slots),
 /// giving us plenty of room for future PQC schemes:
-/// - `0x40` = ML-DSA 65
+/// - `0x40` = ML-DSA 44
 /// - `0x41` = SLH-DSA SHA2 256 S
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum PubKeyType {
-    /// ML-DSA 65 public key.
-    MLDSA65,
-    /// SLH-DSA SHA2 256 S public key.
-    SLHDSASHA2_256S,
+    /// ML-DSA 44 public key.
+    MLDSA44,
 }
 
 impl PubKeyType {
@@ -108,8 +107,7 @@ impl PubKeyType {
     #[must_use]
     pub fn code(self) -> u8 {
         match self {
-            PubKeyType::MLDSA65 => 0x40,
-            PubKeyType::SLHDSASHA2_256S => 0x41,
+            PubKeyType::MLDSA44 => 0x40,
         }
     }
 
@@ -117,14 +115,13 @@ impl PubKeyType {
     #[must_use]
     pub fn from_code(code: u8) -> Option<PubKeyType> {
         match code {
-            0x40 => Some(PubKeyType::MLDSA65),
-            0x41 => Some(PubKeyType::SLHDSASHA2_256S),
+            0x40 => Some(PubKeyType::MLDSA44),
             _ => None,
         }
     }
 }
 
-/// The default hash function for pq-address: SHA-256.
+/// The default hash function for `pq_address`: SHA-256.
 ///
 /// 256 bit hash function is currently considered secure against Grover's attack.
 /// Even if the preimage is recovered, it only reveals a PQ secure public key and thus Shor's is not applicable.
@@ -162,8 +159,8 @@ pub enum AddressEncodeError {
     #[error("Bech32 error: {0}")]
     Bech32(#[from] bech32::EncodeError),
 
-    /// A Bech32 string is at most 90 characters long [BIP-173]
-    #[error("A Bech32 string is at most 90 characters long: got {0}")]
+    /// A PQ address is 67 characters long
+    #[error("A PQ address is 67 characters long: got {0}")]
     InvalidEncodingLength(usize),
 }
 
@@ -186,7 +183,7 @@ pub fn encode_address(params: &AddressParams) -> Result<String, AddressEncodeErr
     let hrp = params.network.hrp();
     let encoded = encode::<Bech32m>(hrp, &payload)?;
 
-    if encoded.len() > MAX_ADDRESS_LENGTH {
+    if encoded.len() != ADDRESS_LENGTH {
         return Err(AddressEncodeError::InvalidEncodingLength(encoded.len()));
     }
 
@@ -299,14 +296,14 @@ pub fn decode_address(s: &str) -> Result<DecodedAddress, AddressDecodeError> {
 mod tests {
     use super::*;
 
-    /// Round‑trip test on Mainnet with SHA‑256 + `ML‑DSA_65`
+    /// Round‑trip test on Mainnet with SHA‑256 + `ML‑DSA 44`
     #[test]
-    fn roundtrip_mainnet_mldsa_65() {
-        let key = b"hello";
+    fn roundtrip_mainnet_mldsa_44() {
+        let key = b"hello world!";
         let params = AddressParams {
             network: Network::Mainnet,
             version: Version::V1,
-            pubkey_type: PubKeyType::MLDSA65,
+            pubkey_type: PubKeyType::MLDSA44,
             pubkey_bytes: key,
         };
         let addr = encode_address(&params).unwrap();
@@ -325,14 +322,14 @@ mod tests {
         assert_eq!(decoded.pubkey_hash_bytes(), hash);
     }
 
-    /// Round‑trip test on Testnet with Sha256 + `ML_DSA_87`
+    /// Round‑trip test on Testnet with Sha256 + `ML-DSA 44`
     #[test]
-    fn roundtrip_testnet_slhdsasha2256s() {
+    fn roundtrip_testnet_mldsa_44() {
         let key = b"world";
         let params = AddressParams {
             network: Network::Testnet,
             version: Version::V1,
-            pubkey_type: PubKeyType::SLHDSASHA2_256S,
+            pubkey_type: PubKeyType::MLDSA44,
             pubkey_bytes: key,
         };
         let addr = encode_address(&params).unwrap();
