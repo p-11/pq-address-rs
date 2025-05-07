@@ -10,13 +10,7 @@ documentation = "https://github.com/p-11/pq-address-rs#readme"
 license = "MIT"
 categories = ["cryptography,cryptography::cryptocurrencies,encoding"]
 keywords = ["crypto", "bitcoin", "post-quantum"]
-exclude = [
-    ".github/*",
-    ".cargo_vcs_info.json",
-    ".gitignore",
-    "Cargo.lock",
-    "Cargo.toml.orig",
-]
+include = ["**/*.rs", "Cargo.toml"]
 
 [dependencies]
 bech32 = "0.11.0"
