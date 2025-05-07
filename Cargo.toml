@@ -8,7 +8,7 @@ readme = "README.md"
 repository = "https://github.com/p-11/pq-address-rs/"
 documentation = "https://github.com/p-11/pq-address-rs#readme"
 license = "MIT"
-categories = ["cryptography,cryptography::cryptocurrencies,encoding"]
+categories = ["cryptography", "cryptography::cryptocurrencies", "encoding"]
 keywords = ["crypto", "bitcoin", "post-quantum"]
 include = ["**/*.rs", "Cargo.toml"]
 
