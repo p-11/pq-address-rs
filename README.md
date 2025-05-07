@@ -117,6 +117,7 @@ match decode_address(&pq_addr) {
         println!("Decoded Version: {:?}", decoded.version);
         println!("Decoded PubKey Type: {:?}", decoded.pubkey_type);
         println!("Decoded PubKey Hash (hex): {}", decoded.pubkey_hash_hex());
+        println!("Re-encoded Address: {}", decoded.to_string());
     }
     Err(e) => eprintln!("Decoding error: {}", e),
 };
