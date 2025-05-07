@@ -10,6 +10,7 @@ use bech32::{Bech32m, Hrp, decode, encode};
 use hex::encode as hex_encode;
 use sha2::{Digest as ShaDigest, Sha256};
 use std::convert::TryFrom;
+use std::fmt;
 use thiserror::Error;
 
 /// A Bech32 string is at most 90 characters long [BIP-173]
@@ -238,6 +239,23 @@ impl DecodedAddress {
     }
 }
 
+impl fmt::Display for DecodedAddress {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // rebuild the raw payload: [ version, pubkey_type, hash… ]
+        let mut payload = Vec::with_capacity(2 + self.pubkey_hash.len());
+        payload.push(self.version.code());
+        payload.push(self.pubkey_type.code());
+        payload.extend(&self.pubkey_hash);
+
+        // hrp() gives the correct prefix for Mainnet/Testnet
+        let hrp = self.network.hrp();
+
+        // re-encode as Bech32m; map any encode error to fmt::Error
+        let s = encode::<Bech32m>(hrp, &payload).map_err(|_| fmt::Error)?;
+        write!(f, "{s}")
+    }
+}
+
 /// Errors that can occur during address decoding.
 #[derive(Error, Debug)]
 pub enum AddressDecodeError {
@@ -351,6 +369,10 @@ mod tests {
         assert_eq!(decoded.pubkey_hash_hex(), hex_encode(&hash));
         assert_eq!(decoded.pubkey_hash, hash);
         assert_eq!(decoded.pubkey_hash_bytes(), hash);
+        assert_eq!(
+            decoded.to_string(),
+            "yp1qpqg39uw700gcctpahe650p9zlzpnjt60cpz09m4kx7ncz8922635hs5cdx7q"
+        );
     }
 
     /// Round‑trip test on Testnet with `ML-DSA 44`
@@ -386,5 +408,9 @@ mod tests {
         assert_eq!(decoded.pubkey_hash_hex(), hex_encode(&hash));
         assert_eq!(decoded.pubkey_hash, hash);
         assert_eq!(decoded.pubkey_hash_bytes(), hash);
+        assert_eq!(
+            decoded.to_string(),
+            "rh1qpqg39uw700gcctpahe650p9zlzpnjt60cpz09m4kx7ncz8922635hsmmfzpd"
+        );
     }
 }
