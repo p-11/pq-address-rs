@@ -1,6 +1,6 @@
 [package]
 name = "pq_address"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 authors = ["Conor Deegan <cd@projecteleven.com>"]
 description = "A Rust library for encoding and decoding post‑quantum public keys into human‑friendly Bech32m addresses."
