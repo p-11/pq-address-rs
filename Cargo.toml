@@ -4,6 +4,12 @@ version = "0.1.0"
 edition = "2024"
 authors = ["Conor Deegan <cd@projecteleven.com>"]
 description = "A Rust library for encoding and decoding post‑quantum public keys into human‑friendly Bech32m addresses."
+license = "MIT"
+repository = "https://github.com/p-11/pq-address-rs/"
+documentation = "https://github.com/p-11/pq-address-rs#readme"
+categories = ["cryptography,cryptography::cryptocurrencies,encoding"]
+keywords = ["crypto", "bitcoin", "post-quantum"]
+readme = "README.md"
 
 [dependencies]
 bech32 = "0.11.0"
