@@ -1,4 +1,4 @@
-# pq_address
+# PQ Address Rust
 
 A Rust library for encoding and decoding post‑quantum public keys into human‑friendly Bech32m addresses.
 
