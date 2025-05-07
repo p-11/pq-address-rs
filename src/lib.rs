@@ -250,8 +250,8 @@ impl fmt::Display for DecodedAddress {
         // hrp() gives the correct prefix for Mainnet/Testnet
         let hrp = self.network.hrp();
 
-        // re-encode as Bech32m; propagate any encode error as AddressEncodeError
-        let s = encode::<Bech32m>(hrp, &payload).map_err(AddressEncodeError::from)?;
+        // re-encode as Bech32m; map any encode error to fmt::Error
+        let s = encode::<Bech32m>(hrp, &payload).map_err(|_| fmt::Error)?;
         write!(f, "{s}")
     }
 }
