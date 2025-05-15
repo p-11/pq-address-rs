@@ -94,11 +94,13 @@ impl Version {
 /// Codes are in the range `0x40..=0xFF` (192 total slots),
 /// giving us plenty of room for future PQC schemes:
 /// - `0x40` = ML-DSA 44
-/// - `0x41` = SLH-DSA SHA2 256 S
+/// - `0x41` = SLH-DSA SHA2 128 S
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum PubKeyType {
     /// ML-DSA 44 public key.
     MlDsa44,
+    /// SLH-DSA-SHA2 128 s public key.
+    SlhDsaSha2S128,
 }
 
 impl PubKeyType {
@@ -109,6 +111,7 @@ impl PubKeyType {
     pub fn code(self) -> u8 {
         match self {
             PubKeyType::MlDsa44 => 0x40,
+            PubKeyType::SlhDsaSha2S128 => 0x41,
         }
     }
 
@@ -117,6 +120,7 @@ impl PubKeyType {
     pub fn from_code(code: u8) -> Option<PubKeyType> {
         match code {
             0x40 => Some(PubKeyType::MlDsa44),
+            0x41 => Some(PubKeyType::SlhDsaSha2S128),
             _ => None,
         }
     }
@@ -126,6 +130,7 @@ impl PubKeyType {
     pub fn pubkey_length(self) -> usize {
         match self {
             PubKeyType::MlDsa44 => 1312,
+            PubKeyType::SlhDsaSha2S128 => 32,
         }
     }
 }
@@ -411,6 +416,84 @@ mod tests {
         assert_eq!(
             decoded.to_string(),
             "rh1qpqg39uw700gcctpahe650p9zlzpnjt60cpz09m4kx7ncz8922635hsmmfzpd"
+        );
+    }
+
+    /// Round‑trip test on Mainnet with `SLH-DSA-SHA2 S 128`
+    #[test]
+    fn roundtrip_mainnet_slhdsa_sha2s128() {
+        let slh_dsa_sha2s128_pub_key_str = "Wi6WLwN39BUnK7X4gkIG101E2zMZWNAVdOsrG8/IxN4=";
+
+        let pub_key_bytes = general_purpose::STANDARD
+            .decode(slh_dsa_sha2s128_pub_key_str)
+            .expect("valid base64");
+
+        let params = AddressParams {
+            network: Network::Mainnet,
+            version: Version::V1,
+            pubkey_type: PubKeyType::SlhDsaSha2S128,
+            pubkey_bytes: &pub_key_bytes,
+        };
+        let addr = encode_address(&params).unwrap();
+        assert_eq!(
+            addr,
+            "yp1qpq3z7j5vfjd9y5vlc86al02ujud4tynj73rahcdaa9cdgu47matt5smc3rlz"
+        );
+        assert!(addr.starts_with("yp"));
+        let decoded = decode_address(&addr).unwrap();
+        assert_eq!(decoded.network, params.network);
+        assert_eq!(decoded.version, params.version);
+        assert_eq!(decoded.pubkey_type, params.pubkey_type);
+        assert_eq!(decoded.pubkey_hash, Hasher::digest(&pub_key_bytes));
+        assert_eq!(decoded.pubkey_hash_bytes(), Hasher::digest(&pub_key_bytes));
+        let mut hasher = Sha256::new();
+        hasher.update(pub_key_bytes);
+        let hash = hasher.finalize().to_vec();
+        assert_eq!(decoded.pubkey_hash_hex(), hex_encode(&hash));
+        assert_eq!(decoded.pubkey_hash, hash);
+        assert_eq!(decoded.pubkey_hash_bytes(), hash);
+        assert_eq!(
+            decoded.to_string(),
+            "yp1qpq3z7j5vfjd9y5vlc86al02ujud4tynj73rahcdaa9cdgu47matt5smc3rlz"
+        );
+    }
+
+    /// Round‑trip test on Testnet with `SLH-DSA-SHA2 S 128`
+    #[test]
+    fn roundtrip_testnet_slhdsa_sha2s128() {
+        let slh_dsa_sha2s128_pub_key_str = "Wi6WLwN39BUnK7X4gkIG101E2zMZWNAVdOsrG8/IxN4=";
+
+        let pub_key_bytes = general_purpose::STANDARD
+            .decode(slh_dsa_sha2s128_pub_key_str)
+            .expect("valid base64");
+
+        let params = AddressParams {
+            network: Network::Testnet,
+            version: Version::V1,
+            pubkey_type: PubKeyType::SlhDsaSha2S128,
+            pubkey_bytes: &pub_key_bytes,
+        };
+        let addr = encode_address(&params).unwrap();
+        assert_eq!(
+            addr,
+            "rh1qpq3z7j5vfjd9y5vlc86al02ujud4tynj73rahcdaa9cdgu47matt5s5m48q0"
+        );
+        assert!(addr.starts_with("rh"));
+        let decoded = decode_address(&addr).unwrap();
+        assert_eq!(decoded.network, params.network);
+        assert_eq!(decoded.version, params.version);
+        assert_eq!(decoded.pubkey_type, params.pubkey_type);
+        assert_eq!(decoded.pubkey_hash, Hasher::digest(&pub_key_bytes));
+        assert_eq!(decoded.pubkey_hash_bytes(), Hasher::digest(&pub_key_bytes));
+        let mut hasher = Sha256::new();
+        hasher.update(pub_key_bytes);
+        let hash = hasher.finalize().to_vec();
+        assert_eq!(decoded.pubkey_hash_hex(), hex_encode(&hash));
+        assert_eq!(decoded.pubkey_hash, hash);
+        assert_eq!(decoded.pubkey_hash_bytes(), hash);
+        assert_eq!(
+            decoded.to_string(),
+            "rh1qpq3z7j5vfjd9y5vlc86al02ujud4tynj73rahcdaa9cdgu47matt5s5m48q0"
         );
     }
 }
