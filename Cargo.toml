@@ -2,7 +2,7 @@
 name = "pq_address"
 version = "0.2.0"
 edition = "2024"
-authors = ["Conor Deegan <cd@projecteleven.com>"]
+authors = ["Project Eleven <support@projecteleven.com>"]
 description = "A Rust library for encoding and decoding post‑quantum public keys into human‑friendly Bech32m addresses."
 readme = "README.md"
 repository = "https://github.com/p-11/pq-address-rs/"
