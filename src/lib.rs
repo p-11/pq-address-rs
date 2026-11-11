@@ -6,7 +6,8 @@
 //! - Support for multiple PQC public keys.
 //! - Full encode/decode round‑trip with Bech32m checksum per BIP‑350.
 
-use bech32::{Bech32m, Hrp, decode, encode};
+use bech32::primitives::decode::CheckedHrpstring;
+use bech32::{Bech32m, Hrp, encode};
 use hex::encode as hex_encode;
 use sha2::{Digest as ShaDigest, Sha256};
 use std::convert::TryFrom;
@@ -264,9 +265,9 @@ impl fmt::Display for DecodedAddress {
 /// Errors that can occur during address decoding.
 #[derive(Error, Debug)]
 pub enum AddressDecodeError {
-    /// Invalid Bech32 structure or checksum
-    #[error("Bech32 error: {0}")]
-    Bech32(#[from] bech32::DecodeError),
+    /// Invalid Bech32m structure or checksum
+    #[error("Bech32m error: {0}")]
+    Bech32(#[from] bech32::primitives::decode::CheckedHrpstringError),
 
     /// HRP wasn’t `yp` or `rh`
     #[error("unknown HRP: {0}")]
@@ -299,8 +300,12 @@ pub enum AddressDecodeError {
 /// - Unrecognized version, public key type or hash algorithm codes
 /// - Digest length mismatch
 pub fn decode_address(s: &str) -> Result<DecodedAddress, AddressDecodeError> {
-    // Decode Bech32
-    let (hrp, bytes) = decode(s)?;
+    // `bech32::decode` accepts either Bech32 or Bech32m. We only ever emit
+    // Bech32m, so pin the decode to it too, otherwise the BIP-350 checksum
+    // gain over plain Bech32 is lost on the read side.
+    let checked = CheckedHrpstring::new::<Bech32m>(s)?;
+    let hrp = checked.hrp();
+    let bytes: Vec<u8> = checked.byte_iter().collect();
 
     // Map HRP to network enum
     let network = Network::try_from(hrp.as_str())?;
@@ -495,5 +500,19 @@ mod tests {
             decoded.to_string(),
             "rh1qpq3z7j5vfjd9y5vlc86al02ujud4tynj73rahcdaa9cdgu47matt5s5m48q0"
         );
+    }
+
+    /// Same payload, checksummed with plain Bech32 instead of Bech32m, must fail.
+    #[test]
+    fn decode_address_rejects_original_bech32_checksum() {
+        let hrp = Hrp::parse("yp").unwrap();
+        let mut payload = vec![Version::V1.code(), PubKeyType::SlhDsaSha2S128.code()];
+        payload.extend(Hasher::digest(b"not a real pubkey"));
+
+        let bech32m_addr = bech32::encode::<bech32::Bech32m>(hrp, &payload).unwrap();
+        let bech32_orig_addr = bech32::encode::<bech32::Bech32>(hrp, &payload).unwrap();
+
+        assert!(decode_address(&bech32m_addr).is_ok());
+        assert!(decode_address(&bech32_orig_addr).is_err());
     }
 }
